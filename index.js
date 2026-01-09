@@ -8,4 +8,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+import authRoutes from "./routes/authRoutes.js";
+
+//AUTH MIDDLEWARE
+app.use("/auth", authRoutes);
+
 export default app;
