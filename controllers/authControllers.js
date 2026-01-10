@@ -2,8 +2,8 @@ import bcrypt from "bcrypt";
 import UserModel from "../models/User.js";
 
 export const register = async (req, res) => {
-  const { username, password } = req.body;
   try {
+    let { username, password } = req.body;
     // 3️⃣ Validate input
     if (!username || !password) {
       return res.status(400).json({
@@ -58,4 +58,48 @@ export const register = async (req, res) => {
   }
 };
 
-export const login = () => {};
+export const login = async (req, res) => {
+  try {
+    let { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username and Password are required",
+      });
+    }
+
+    // Normalize username
+    username = username.trim().toLowerCase();
+
+    const user = await UserModel.findOne({ username }).select("+password");
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    const isPassMatch = await bcrypt.compare(password, user.password);
+    if (!isPassMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Logged in successfully",
+      data: {
+        id: user._id,
+        username: user.username,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: true,
+      message: "Something went wrong. Please try later.",
+    });
+  }
+};
