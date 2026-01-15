@@ -38,7 +38,7 @@ io.on("connection", (socket) => {
 
   socket.on("join", (username) => {
     socket.join(username);
-    console.log(username, "joined their room");
+    console.log(username, "joined room");
   });
 
   socket.on("send_message", async (data) => {
@@ -52,11 +52,11 @@ io.on("connection", (socket) => {
         message,
       });
 
-      // Send to both sender & receiver
+      // send message to both users
       io.to(sender).emit("receive_message", savedMessage);
       io.to(receiver).emit("receive_message", savedMessage);
-    } catch (error) {
-      console.error("Socket Error:", error.message);
+    } catch (err) {
+      console.error("Socket message error:", err.message);
     }
   });
 
