@@ -58,6 +58,7 @@ export const register = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong. Please try again later.",
+      error: error.message,
     });
   }
 };
@@ -103,6 +104,7 @@ export const login = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong. Please try later.",
+      error: error.message,
     });
   }
 };

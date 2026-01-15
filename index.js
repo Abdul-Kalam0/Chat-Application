@@ -64,6 +64,7 @@ app.get("/messages", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong. Please try again later.",
+      error: error.message,
     });
   }
 });
@@ -85,10 +86,10 @@ app.get("/users", async (req, res) => {
     });
   } catch (error) {
     console.error("Users Error: ", error.message);
-
     return res.status(500).json({
       success: false,
       message: "Something went wrong. Please try again later.",
+      error: error.message,
     });
   }
 });
