@@ -8,6 +8,7 @@ import http from "http";
 import authRoutes from "./routes/authRoutes.js";
 import UserModel from "./models/User.js";
 import MessageModel from "./models/Message.js";
+import authMiddleware from "./middleware/auth.js";
 
 const app = express();
 app.use(cors({ origin: "https://chat-application-001.vercel.app" }));
@@ -82,7 +83,7 @@ io.on("connection", (socket) => {
 //   }
 // });
 
-app.get("/users", async (req, res) => {
+app.get("/users", authMiddleware, async (req, res) => {
   const { currentUser } = req.query;
   try {
     const users = await UserModel.find({ username: { $ne: currentUser } });
@@ -123,7 +124,7 @@ app.get("/users", async (req, res) => {
 //   }
 // });
 
-app.get("/messages", async (req, res) => {
+app.get("/messages", authMiddleware, async (req, res) => {
   const { sender, receiver } = req.query;
   try {
     const messages = await MessageModel.find({
