@@ -10,12 +10,12 @@ import UserModel from "./models/User.js";
 import MessageModel from "./models/Message.js";
 
 const app = express();
-app.use(cors({ origin: "http://localhost:3000" }));
+app.use(cors({ origin: "https://chat-application-001.vercel.app" }));
 app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "https://chat-application-001.vercel.app",
   },
 });
 
