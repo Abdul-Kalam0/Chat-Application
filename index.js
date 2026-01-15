@@ -2,127 +2,82 @@ import express from "express";
 import dotenv from "dotenv";
 dotenv.config();
 import cors from "cors";
-
-import { Server } from "socket.io";
 import http from "http";
+import { Server } from "socket.io";
+
 import authRoutes from "./routes/authRoutes.js";
 import UserModel from "./models/User.js";
 import MessageModel from "./models/Message.js";
 import authMiddleware from "./middleware/auth.js";
 
+const CLIENT = "https://chat-application-001.vercel.app";
+
 const app = express();
-app.use(cors({ origin: "https://chat-application-001.vercel.app" }));
+app.use(
+  cors({
+    origin: CLIENT,
+    credentials: true,
+  })
+);
 app.use(express.json());
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "https://chat-application-001.vercel.app",
+    origin: CLIENT,
+    credentials: true,
   },
 });
 
-//express middlewares
-app.use(cors());
-app.use(express.json());
-
-//auth middleware
+// Routes
 app.use("/auth", authRoutes);
 
+// ================= SOCKET.IO =================
 io.on("connection", (socket) => {
-  // console.log("User connected", socket.id);
+  console.log("User connected:", socket.id);
+
+  socket.on("join", (username) => {
+    socket.join(username);
+    console.log(username, "joined their room");
+  });
 
   socket.on("send_message", async (data) => {
-    const { sender, receiver, message } = data;
-    const newMessage = new MessageModel({
-      sender,
-      receiver,
-      message,
-    });
-    await newMessage.save();
+    try {
+      const { sender, receiver, message } = data;
+      if (!sender || !receiver || !message) return;
 
-    socket.broadcast.emit("receive_message", data);
+      const savedMessage = await MessageModel.create({
+        sender,
+        receiver,
+        message,
+      });
+
+      // Send to both sender & receiver
+      io.to(sender).emit("receive_message", savedMessage);
+      io.to(receiver).emit("receive_message", savedMessage);
+    } catch (error) {
+      console.error("Socket Error:", error.message);
+    }
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected", socket.id);
+    console.log("User disconnected:", socket.id);
   });
 });
 
-// app.get("/users", async (req, res) => {
-//   const { currentUser } = req.query;
-//   try {
-//     // if (!currentUser) {
-//     //   return res.status(400).json({
-//     //     success: false,
-//     //     message: "currentUser is required.",
-//     //   });
-//     // }
-
-//     const users = await UserModel.find({
-//       username: { $ne: currentUser.toLowerCase() },
-//     }).select("_id username createdAt");
-
-//     if (users.length === 0) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "User not available",
-//       });
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Users fetched successfully",
-//       users,
-//     });
-//   } catch (error) {
-//     console.log("Users Error: ", error.message);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Something went wrong. Please try again later.",
-//       error: error.message,
-//     });
-//   }
-// });
-
+// ================= REST APIs =================
 app.get("/users", authMiddleware, async (req, res) => {
   const { currentUser } = req.query;
   try {
-    const users = await UserModel.find({ username: { $ne: currentUser } });
+    const users = await UserModel.find({
+      username: { $ne: currentUser },
+    }).select("_id username");
+
     res.json(users);
   } catch (error) {
-    res.status(500).json({ message: "Errro fetching users" });
+    res.status(500).json([]);
   }
 });
-
-// app.get("/messages", async (req, res) => {
-//   const { sender, receiver } = req.query;
-//   try {
-//     // if (!sender || !receiver) {
-//     //   return res.status(400).json({
-//     //     success: false,
-//     //     message: "sender and receiver is required",
-//     //   });
-//     // }
-//     const messages = await MessageModel.find({
-//       $or: [
-//         { sender, receiver },
-//         { sender: receiver, receiver: sender },
-//       ],
-//     }).sort({ createdAt: 1 });
-
-//     return res.status(200).json({
-//       success: true,
-//       messages,
-//     });
-//   } catch (error) {
-//     console.error("Message Error: ", error.message);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Something went wrong. Please try again later.",
-//       error: error.message,
-//     });
-//   }
-// });
 
 app.get("/messages", authMiddleware, async (req, res) => {
   const { sender, receiver } = req.query;
@@ -133,9 +88,10 @@ app.get("/messages", authMiddleware, async (req, res) => {
         { sender: receiver, receiver: sender },
       ],
     }).sort({ createdAt: 1 });
+
     res.json(messages);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching messages" });
+    res.status(500).json([]);
   }
 });
 
