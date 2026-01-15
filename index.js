@@ -6,6 +6,7 @@ import cors from "cors";
 import { Server } from "socket.io";
 import http from "http";
 import authRoutes from "./routes/authRoutes.js";
+import UserModel from "./models/User.js";
 import MessageModel from "./models/Message.js";
 
 const app = express();
