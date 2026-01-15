@@ -7,6 +7,7 @@ import { Server } from "socket.io";
 import http from "http";
 import authRoutes from "./routes/authRoutes.js";
 import MessageModel from "./models/Message.js";
+import UserModel from "./models/User.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -34,12 +35,12 @@ io.on("connection", (socket) => {
       message,
     });
     await newMessage.save();
+  });
 
-    socket.broadcast.emit("receive_message", data);
+  socket.broadcast.emit("receive_message", data);
 
-    socket.on("disconnect", () => {
-      console.log("User disconnected", socket.id);
-    });
+  socket.on("disconnect", () => {
+    console.log("User disconnected", socket.id);
   });
 });
 
@@ -67,4 +68,29 @@ app.get("/messages", async (req, res) => {
   }
 });
 
-export default app;
+app.get("/users", async (req, res) => {
+  const { currentUser } = req.query;
+  try {
+    const users = await UserModel.find({ username: { $ne: currentUser } });
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not available",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Users fetched successfully",
+      users,
+    });
+  } catch (error) {
+    console.error("Users Error: ", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+});
+
+export default server;
