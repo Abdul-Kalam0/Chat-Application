@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import UserModel from "../models/User.js";
+import MessageModel from "../models/Message.js";
 
 export const register = async (req, res) => {
   try {
@@ -33,7 +34,7 @@ export const register = async (req, res) => {
       });
     }
     // 5️⃣ Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     // 6️⃣ Create user
     const user = new UserModel({
@@ -54,6 +55,13 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     console.error("Register Error: ", error.message);
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Username already exists",
+      });
+    }
 
     return res.status(500).json({
       success: false,
@@ -112,13 +120,23 @@ export const login = async (req, res) => {
 export const getUsers = async (req, res) => {
   const { currentUser } = req.query;
   try {
-    const users = await UserModel.find({ username: { $ne: currentUser } });
+    if (!currentUser) {
+      return res.status(400).json({
+        success: false,
+        message: "currentUser is required.",
+      });
+    }
+    const users = await UserModel.find({
+      username: { $ne: currentUser.toLowerCase() },
+    }).select("_id username createdAt");
+
     if (users.length === 0) {
       return res.status(404).json({
         success: false,
         message: "User not available",
       });
     }
+
     return res.status(200).json({
       success: true,
       message: "Users fetched successfully",
@@ -137,6 +155,12 @@ export const getUsers = async (req, res) => {
 export const getMessages = async (req, res) => {
   const { sender, receiver } = req.query;
   try {
+    if (!sender || !receiver) {
+      return res.status(400).json({
+        success: false,
+        message: "sender and receiver is required",
+      });
+    }
     const messages = await MessageModel.find({
       $or: [
         { sender, receiver },
