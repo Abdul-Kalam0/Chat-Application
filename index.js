@@ -66,7 +66,7 @@ io.on("connection", (socket) => {
 });
 
 // ================= REST APIs =================
-app.get("/users", authMiddleware, async (req, res) => {
+app.get("/users", async (req, res) => {
   const { currentUser } = req.query;
   try {
     const users = await UserModel.find({
@@ -79,7 +79,7 @@ app.get("/users", authMiddleware, async (req, res) => {
   }
 });
 
-app.get("/messages", authMiddleware, async (req, res) => {
+app.get("/messages", async (req, res) => {
   const { sender, receiver } = req.query;
   try {
     const messages = await MessageModel.find({
