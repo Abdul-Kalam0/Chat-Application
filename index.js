@@ -14,20 +14,16 @@ const CLIENT = "https://chat-application-backend-7lg7.onrender.com";
 //const CLIENT = "http://localhost:3000";
 
 const app = express();
-app.use(
-  cors({
-    origin: CLIENT,
-  })
-);
-app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: CLIENT,
-    credentials: true,
   },
 });
+
+app.use(cors());
+app.use(express.json());
 
 // Routes
 app.use("/auth", authRoutes);
