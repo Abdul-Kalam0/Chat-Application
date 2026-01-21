@@ -6,11 +6,11 @@ import http from "http";
 import { Server } from "socket.io";
 
 import authRoutes from "./routes/authRoutes.js";
-import UserModel from "./models/User.js";
-import MessageModel from "./models/Message.js";
+import User from "./models/User.js";
+import Message from "./models/Message.js";
 
-const CLIENT = "https://chat-application-001.vercel.app";
 // const CLIENT = "http://localhost:3000";
+const CLIENT = "https://chat-application-001.vercel.app";
 
 const app = express();
 app.use(cors({ origin: CLIENT }));
@@ -18,68 +18,87 @@ app.use(express.json());
 
 const server = http.createServer(app);
 
-// 🔒 FORCE WEBSOCKET (critical)
 const io = new Server(server, {
   cors: { origin: CLIENT },
   transports: ["websocket"],
 });
 
-// -------- ROUTES --------
-app.use("/auth", authRoutes);
+// username -> Set<socketId>
+const onlineUsers = new Map();
 
-// -------- SOCKET.IO --------
+// ---------- SOCKET ----------
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log("Connected:", socket.id);
 
-  // ✅ join personal room (reliable)
   socket.on("join", (username) => {
     if (!username) return;
+
+    socket.username = username;
     socket.join(username);
-    console.log(`${username} joined room`);
+
+    if (!onlineUsers.has(username)) {
+      onlineUsers.set(username, new Set());
+    }
+    onlineUsers.get(username).add(socket.id);
+
+    emitOnlineUsers();
   });
 
-  // ✅ PRIVATE 1-to-1 MESSAGE
+  socket.on("typing", ({ sender, receiver }) => {
+    io.to(receiver).emit("typing", { sender });
+  });
+
+  socket.on("stop_typing", ({ sender, receiver }) => {
+    io.to(receiver).emit("stop_typing", { sender });
+  });
+
   socket.on("send_message", async (data, ack) => {
-    try {
-      const { sender, receiver, message } = data;
-      if (!sender || !receiver || !message) return;
+    const { sender, receiver, message } = data;
+    if (!sender || !receiver || !message) return;
 
-      const savedMessage = await MessageModel.create({
-        sender,
-        receiver,
-        message,
-      });
+    const saved = await Message.create({ sender, receiver, message });
 
-      // 🔒 SEND ONLY TO BOTH USERS
-      io.to(sender).emit("receive_message", savedMessage);
-      io.to(receiver).emit("receive_message", savedMessage);
+    io.to(sender).emit("receive_message", saved);
+    io.to(receiver).emit("receive_message", saved);
 
-      ack?.({ success: true });
-    } catch (err) {
-      console.error(err);
-      ack?.({ success: false });
-    }
+    ack?.({ success: true });
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    const username = socket.username;
+    if (!username) return;
+
+    const set = onlineUsers.get(username);
+    if (!set) return;
+
+    set.delete(socket.id);
+    if (set.size === 0) onlineUsers.delete(username);
+
+    emitOnlineUsers();
   });
 });
 
-// -------- REST APIs --------
-app.get("/users", async (req, res) => {
-  const { currentUser } = req.query;
-  const users = await UserModel.find({
-    username: { $ne: currentUser },
-  }).select("_id username");
+function emitOnlineUsers() {
+  const list = {};
+  for (const [u, sockets] of onlineUsers.entries()) {
+    list[u] = sockets.size > 0;
+  }
+  io.emit("online_users", list);
+}
 
+// ---------- REST ----------
+app.use("/auth", authRoutes);
+
+app.get("/users", async (req, res) => {
+  const users = await User.find({
+    username: { $ne: req.query.currentUser },
+  }).select("_id username");
   res.json(users);
 });
 
 app.get("/messages", async (req, res) => {
   const { sender, receiver } = req.query;
-
-  const messages = await MessageModel.find({
+  const messages = await Message.find({
     $or: [
       { sender, receiver },
       { sender: receiver, receiver: sender },
